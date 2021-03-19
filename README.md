@@ -1,6 +1,6 @@
 # Buidling a Realtime SMS voting app with Next.js, Ably, Vercel and Vonage
 
-https://next-js-chat-app.vercel.app/
+https://sms-vote.vercel.app/
 
 This is a demo of building a SMS voting application with [Next.js](https://nextjs.org/) using Ably as the messaging platform.
 
