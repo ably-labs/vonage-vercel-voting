@@ -22,7 +22,7 @@ You'll learn how to -
 
 [React](https://reactjs.org/) is a JavaScript library for building user interfaces with encapsulated components that manage their own state.
 
-[Vonage](https://www.vonage.co.uk/) is an SMS gateway provider.
+[Vonage](https://developer.vonage.com/) is a communication API platform that allows you to send and receive SMS messages programmatically.
 
 # WebSockets in Vercel with Ably
 
@@ -34,13 +34,13 @@ This is where Ably comes in. The client can connect to an [Ably Channel](https:/
 
 # What are we going to build?
 
-We'll build a realtime sms voting app that runs in the browser. The app will present a question to the viewers, and they'll be prompted to send text messages using their mobile phone to vote for an answer - A, B, C or D.
+We'll build a realtime SMS voting app that runs in the browser. The app will present a question to the viewers, and they'll be prompted to send text messages using their mobile phone to vote for an answer - A, B, C or D. Once they've cast their vote, they will receive an SMS message confirming the receipt of their answer.
 
 In real-time, as SMS messages are received, charts of the vote breakdown will appear in the app.
 
 It will be built upon the Next.js [create-next-app](https://nextjs.org/docs/api-reference/create-next-app) template, it will contain a React component which will use Ably to receive messages. 
 
-We'll write a Next.js serverless function which will be used to connect to Ably, and to receive forwarded SMS messages from Vonage.
+We'll write a Next.js serverless function which will be used to connect to Ably, to receive the SMS votes sent to a Vonage number, and to confirm receipt by replying with an SMS.
 
 
 ## Dependencies
@@ -49,7 +49,7 @@ In order to build this app, you will need:
 
 * **An Ably account** for sending messages: [Create an account with Ably for free](https://www.ably.io/signup).
 * **A Vercel Account** for hosting on production: [Create an account with Vercel for free](https://vercel.com/signup).
-* **A Vonage Account** for creating a phone number.
+* [**A Vonage Account**](https://dashboard.nexmo.com/sign-up) and a [**Vonage number**](https://dashboard.nexmo.com/buy-numbers) for the SMS communications.
 * **Node 12** (LTS) or greater: [Install Node](https://nodejs.org/en/).
 
 ## Local dev pre-requirements
@@ -80,8 +80,7 @@ npm run dev
 The Next.js dev server will spin up and you'll see an empty Next.JS starter app. This is what we'll build our sms voting app on top of.
 
 # Realtime Pub/Sub messaging with Ably
-
-The sms voting app we'll build uses [Ably](https://www.ably.io/) for [pub/sub messaging](https://www.ably.io/documentation/core-features/pubsub) between the users. Pub/Sub stands for Publish and Subscribe, and it is a popular pattern used for realtime data delivery. The app will be able to send, or `publish` messages over an [Ably Channel](https://www.ably.io/channels). The clients that use the app will be `subscribed` to the channel and will be able to receive the messages. We'll build a UI to create messages to be sent, and to display messages as they are received.
+The SMS voting app we'll build uses [Ably](https://www.ably.io/) for [pub/sub messaging](https://www.ably.io/documentation/core-features/pubsub) between the users. Pub/Sub stands for Publish and Subscribe, and it is a popular pattern used for realtime data delivery. The app will be able to send, or `publish` messages over an [Ably Channel](https://www.ably.io/channels). The clients that use the app will be `subscribed` to the channel and will be able to receive the messages. We'll build a UI to create messages to be sent, and to display messages as they are received.
 
 ## Authentication with the Ably service
 
@@ -145,13 +144,13 @@ The topology of our Next.js app will look like this:
 ```
 
 * `/pages/index.js` is the home page
-* `/api/acceptWebhook.js` is our SMS receiving API for Vonage to call
+* `/api/acceptWebhook.js` is our SMS receiving webhook for Vonage to call
 * `/api/createTokenRequest.js` is our Ably token authentication API
 * `/components/QuestionComponent.jsx` is our UI rendering logic for votable questions
 * `/components/QuestionComponent.module.css` contains the styles for the QuestionComponent
 * `/components/ResultsComponent.jsx` is the results component
 * `/components/ResultsComponent.module.css` contains the styles for the results component
-* `/components/AblyReactEffect.js` is the Ably React Hook.
+* `/components/AblyReactEffect.js` is the Ably React Hook
 * `/components/parseSms.js` is the SMS unpacker.
 
 Let's walk through how this application is built.
@@ -271,7 +270,7 @@ We're iterating over our `question.options` - the answers we want our users to v
 
 Vonage allows you to configure mobile phone numbers in their API dashboard that will trigger your own APIs when messages are received.
 
-To do this, we need to add a `Vercel Serverless function` to our `Next.js` app. This serverless function will get called by `Vonage` each time an SMS is received (once we setup a phone number!) and we're going to put some code in the function to unpack this SMS message, and send it to our `React app` using an `Ably channel`.
+To do this, we need to add a `Vercel Serverless function` to our `Next.js` app. This serverless function will get called by `Vonage` each time an SMS is received (once we setup a phone number!) and we're going to put some code in the function to unpack this SMS message, send it to our `React app` using an `Ably channel`, and confirm receipt by replying to the sender.
 
 This process is quite similar to the setup for our Ably `createTokenRequest`. 
 
@@ -279,6 +278,7 @@ Create a file called `./pages/api/acceptWebhook.js` into which add the following
 
 ```js
 import Ably from "ably/promises";
+import Vonage from "@vonage/server-sdk";
 
 export default async function handler(req, res) {
 
@@ -294,9 +294,33 @@ export default async function handler(req, res) {
     // Create an Ably client, get our `sms-notifications` channel
     const client = new Ably.Realtime(process.env.ABLY_API_KEY);
     const channel = client.channels.get("sms-notifications");
-
+    
     // Publish our SMS contents as an Ably message for the browser
-    await channel.publish({ name: "smsEvent", data: incomingData });
+    await channel.publish({
+        name: "smsEvent",
+        data: incomingData
+    });
+
+    // Initialize the Vonage SDK
+    const vonage = new Vonage({
+        apiKey: process.env.VONAGE_API_KEY,
+        apiSecret: process.env.VONAGE_API_SECRET
+    });
+    
+    // Send SMS using the Vonage SDK
+    vonage.message.sendSms(incomingData.to, incomingData.from, "Your vote has been cast! 🗳", {
+        "type": "unicode"
+    }, (err, responseData) => {
+        if (err) {
+            console.log(err);
+        } else {
+            if (responseData.messages[0]['status'] === "0") {
+                console.log("Message sent successfully.");
+            } else {
+                console.log(`Message failed with error: ${responseData.messages[0]['error-text']}`);
+            }
+        }
+    })
 
     // Return the received data as a 200 OK for debugging.
     res.send(incomingData);
@@ -309,7 +333,9 @@ function getSmsDetails(req, res) {
 
     if (!params.to || !params.msisdn) {
         console.log('This is not a valid inbound SMS message!');
-        return { success: false };
+        return {
+            success: false
+        };
     }
 
     return {
@@ -318,8 +344,10 @@ function getSmsDetails(req, res) {
         from: params.msisdn,
         text: params.text,
         type: params.type,
-        timestamp: params['message-timestamp']
+        timestamp: params['message-timestamp'],
+        to: params.to
     };
+
 }
 ```
 
@@ -327,7 +355,7 @@ We're going to move back to the app for now, but we'll come back to this functio
 
 # Reacting to SMS messages with the ResultsComponent
 
-The sms voting app logic is contained inside the `ResultsComponent.jsx` component.
+The SMS voting app logic is contained inside the `ResultsComponent.jsx` component.
 
 Start off by referencing the imports we'll need at the top of the file:
 
