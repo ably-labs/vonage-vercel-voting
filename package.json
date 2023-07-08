@@ -8,8 +8,8 @@
     "start": "next start"
   },
   "dependencies": {
-    "@vonage/server-sdk": "^2.10.7",
-    "ably": "^1.2.5-beta.1",
+    "@vonage/server-sdk": "^3.6.0",
+    "ably": "^1.2.41",
     "next": "10.0.7",
     "react": "17.0.1",
     "react-dom": "17.0.1"
