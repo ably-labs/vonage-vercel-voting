@@ -2,12 +2,10 @@ import Head from 'next/head';
 import styles from '../styles/Home.module.css';
 import dynamic from 'next/dynamic';
 
-import QuestionsComponent from "../components/QuestionComponent";
-const ResultsComponent = dynamic(() => import('../components/ResultsComponent'), { ssr: false });
+const VotingComponent = dynamic(() => import('../components/VotingComponent'), { ssr: false });
 
 export default function Home() {
-    
-  const question = getQuestion();
+
 
   return (
     <div className={styles.container}>
@@ -27,8 +25,7 @@ export default function Home() {
         <img src="/images/smsvote.svg" alt="sms vote" className={styles.logo}/>
         <h1 className={styles.title}>Text: (+44) 7451270716<br />to vote</h1>
       </header>
-        <QuestionsComponent question={question} />
-        <ResultsComponent question={question} />
+        <VotingComponent />
       </main>
 
       <footer className={styles.footer}>
@@ -48,15 +45,3 @@ export default function Home() {
   )
 }
 
-
-function getQuestion() {    
-  return {
-    text: "Which biscuit is best?",
-    options: [
-        { key: "A", text: "Jammy Dodger", votes: 0, src: "images/jamiedodger.jpg" },
-        { key: "B", text: "Oreo", votes: 0, src: "images/oreo.jpg" },
-        { key: "C", text: "Bourbon", votes: 0, src: "images/bourbon.jpg" },
-        { key: "D", text: "Custard cream", votes: 0, src: "images/custardcream.jpg" }
-    ]
-  };
-}

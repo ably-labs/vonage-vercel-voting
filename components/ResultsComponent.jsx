@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { useChannel, readLastAblyMessage, leadingClientSends } from "./AblyReactEffect";
+import React, { useState } from 'react';
+import { readLastAblyMessage } from "./AblyReactEffect";
+import { useChannel } from 'ably/react';
 import styles from './ResultsComponent.module.css';
 import { parseSms } from "./parseSms";
 
@@ -10,19 +11,22 @@ const ResultsComponent = ({ question }) => {
     
     const [votes, setVotes] = useState(initialScores);
 
-    const [statusChannel] = readLastAblyMessage("sms-notifications-votes", async (lastMessage) => {
-        setVotes(lastMessage.data);
-    });
+    const statusChannel = readLastAblyMessage(
+        "sms-notifications-votes", 
+        async (lastMessage) => {
+            setVotes(lastMessage.data);
+        }, 
+        true
+    );
 
-    const [channel, ably] = useChannel("sms-notifications", async (message) => {
+    const { channel, ably } = useChannel("sms-notifications", async (message) => {
         const sms = parseSms(message);
         const value = sms.text.toUpperCase();
 
         const updatedVotes = { ...votes };
         updatedVotes[value]++;
         setVotes(updatedVotes);
-
-        statusChannel.publish({ name: "voteSummary", data: updatedVotes });
+        statusChannel.publish('voteSummary', updatedVotes);
     });
 
     const totalVotes = getTotalVotes(votes);
