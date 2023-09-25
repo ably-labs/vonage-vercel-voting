@@ -1,5 +1,5 @@
 import Ably from "ably/promises";
-import Vonage from "@vonage/server-sdk";
+import { Vonage } from "@vonage/server-sdk";
 
 export default async function handler(req, res) {
 
@@ -22,9 +22,10 @@ export default async function handler(req, res) {
         apiSecret: process.env.VONAGE_API_SECRET
     })
 
-    vonage.message.sendSms(incomingData.to, incomingData.from, "Your vote has been cast! 🗳", {
-        "type": "unicode"
-    }, (err, responseData) => {
+    vonage.sms.send({ 
+        to: incomingData.from,
+        from: incomingData.to, 
+        text: "Your vote has been cast! 🗳"}, (err, responseData) => {
         if (err) {
             console.log(err);
         } else {

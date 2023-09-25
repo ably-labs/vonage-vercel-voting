@@ -1,35 +1,14 @@
-import Ably from "ably/promises";
-import { useEffect, useState } from 'react'
+import { useChannel } from 'ably/react'
+import { useState } from 'react'
 
-const ably = new Ably.Realtime.Promise({ authUrl: '/api/createTokenRequest' });
+export function readLastAblyMessage(channelName, callbackOnMessage, rewind = false) {
 
-export function useChannel(channelName, callbackOnMessage, rewind = false) {
     const rewindParam = "[?rewind=1]";
     const getChannel = rewind ? rewindParam + channelName : channelName;
-    const channel = ably.channels.get(getChannel);
 
-    const onMount = () => {
-        channel.subscribe(msg => { callbackOnMessage(msg); });
-    }
-
-    const onUnmount = () => {
-        channel.unsubscribe();
-    }
-
-    const useEffectHook = () => {
-        onMount();
-        return () => { onUnmount(); };
-    };
-
-    useEffect(useEffectHook);
-
-    return [channel, ably];
-}
-
-export function readLastAblyMessage(channelName, callbackOnMessage) {
     const [synced, setSynced] = useState(false);
     
-    const [statusChannel, ably] = useChannel(channelName, async (message) => {
+    const { channel } = useChannel(getChannel, async (message) => {
     
          if (!synced) {
             setSynced(true);
@@ -37,5 +16,5 @@ export function readLastAblyMessage(channelName, callbackOnMessage) {
         }
     }, true);
     
-    return [statusChannel, ably];
+    return channel;
 }

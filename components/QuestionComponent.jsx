@@ -1,3 +1,5 @@
+'use client'
+
 import styles from './QuestionComponent.module.css';
 
 const QuestionComponent = ({ question }) => {
